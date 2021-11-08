@@ -12,7 +12,7 @@ import (
 	"strconv"
 )
 
-const tempDir = "templates"
+const tempDir = "wallet_server/templates"
 
 type WalletServer struct {
 	port    uint16
@@ -70,6 +70,18 @@ func (ws *WalletServer) CreateTransaction(w http.ResponseWriter, req *http.Reque
 			io.WriteString(w, string(utils.JsonStatus("fail")))
 			return
 		}
+
+		publicKey := utils.PublicKeyFromString(*t.SenderPublicKey)
+		privateKey := utils.PrivateKeyFromString(*t.SenderPrivateKey, publicKey)
+		value, err := strconv.ParseFloat(*t.Value, 32)
+		if err != nil {
+			log.Println("ERROR: parse error")
+			io.WriteString(w, string(utils.JsonStatus("fail")))
+			return
+		}
+		value32 := float32(value)
+
+		w.Header().Add("Content-Type", "application/json")
 
 	default:
 		w.WriteHeader(http.StatusBadRequest)
