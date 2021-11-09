@@ -96,6 +96,9 @@ func (bcs *BlockchainServer) Transactions(w http.ResponseWriter, req *http.Reque
 			m = utils.JsonStatus("success")
 		}
 		io.WriteString(w, string(m))
+	case http.MethodDelete:
+		bc := bcs.GetBlockchain()
+
 	default:
 		log.Println("ERROR: Invalid HTTP Method")
 		w.WriteHeader(http.StatusBadRequest)
@@ -143,19 +146,22 @@ func (bcs *BlockchainServer) Amount(w http.ResponseWriter, req *http.Request) {
 	case http.MethodGet:
 		blockchainAddress := req.URL.Query().Get("blockchain_address")
 		amount := bcs.GetBlockchain().CalculateTotalAmount(blockchainAddress)
-		ar := &block.AmountResponse{amount}
 
+		ar := &block.AmountResponse{amount}
 		m, _ := ar.MarshalJSON()
 
 		w.Header().Add("Content-Type", "application/json")
 		io.WriteString(w, string(m[:]))
+
 	default:
-		log.Println("ERROR: Invalid HTTP Method")
+		log.Printf("ERROR: Invalid HTTP Method")
 		w.WriteHeader(http.StatusBadRequest)
 	}
 }
 
 func (bcs *BlockchainServer) Run() {
+	bcs.GetBlockchain().Run()
+
 	http.HandleFunc("/", bcs.GetChain)
 	http.HandleFunc("/transactions", bcs.Transactions)
 	http.HandleFunc("/mine", bcs.Mine)
