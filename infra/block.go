@@ -7,12 +7,23 @@ import (
 	"fmt"
 	"go-blockchain/domain/entity"
 	"go-blockchain/domain/repository"
+	"time"
 )
 
 type blockRepository struct{}
 
 func NewBlockRepository() repository.BlockRepository {
 	return &blockRepository{}
+}
+
+// これはentityに書くのか...それともblockRepositoryに入れるのか...
+func NewBlock(nonce int, previousHash [32]byte, transactions []*entity.Transaction) *entity.Block {
+	b := new(entity.Block)
+	b.Timestamp = time.Now().UnixNano()
+	b.Nonce = nonce
+	b.PreviousHash = previousHash
+	b.Transactions = transactions
+	return b
 }
 
 func (br *blockRepository) PreviousHash(b *entity.Block) [32]byte {
