@@ -2,15 +2,16 @@ package repository
 
 import (
 	"encoding/json"
-	"go-blockchain/block"
-	"go-blockchain/domain/entity"
-	"go-blockchain/domain/repository"
-	"go-blockchain/utils"
-	"go-blockchain/wallet"
 	"io"
 	"log"
 	"net/http"
 	"strconv"
+
+	"go-blockchain/blockchain/block"
+	"go-blockchain/blockchain/domain/entity"
+	"go-blockchain/blockchain/domain/repository"
+	"go-blockchain/utils"
+	"go-blockchain/wallet"
 )
 
 type blockchainServerRepository struct{}

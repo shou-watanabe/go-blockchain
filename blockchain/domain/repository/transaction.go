@@ -1,6 +1,6 @@
 package repository
 
-import "go-blockchain/domain/entity"
+import "go-blockchain/blockchain/domain/entity"
 
 type TransactionRepository interface {
 	Print(t *entity.Transaction)

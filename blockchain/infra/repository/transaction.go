@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	"go-blockchain/domain/entity"
-	"go-blockchain/domain/repository"
+	"go-blockchain/blockchain/domain/entity"
+	"go-blockchain/blockchain/domain/repository"
 )
 
 type transactionRepository struct{}

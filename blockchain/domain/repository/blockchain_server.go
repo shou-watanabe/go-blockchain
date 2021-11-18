@@ -1,8 +1,9 @@
 package repository
 
 import (
-	"go-blockchain/domain/entity"
 	"net/http"
+
+	"go-blockchain/blockchain/domain/entity"
 )
 
 type BlockchainServerRepository interface {

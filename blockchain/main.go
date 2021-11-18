@@ -2,8 +2,9 @@ package main
 
 import (
 	"flag"
-	"go-blockchain/infra/repository"
 	"log"
+
+	"go-blockchain/blockchain/infra/repository"
 )
 
 func init() {

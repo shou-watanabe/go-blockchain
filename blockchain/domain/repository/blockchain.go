@@ -2,7 +2,8 @@ package repository
 
 import (
 	"crypto/ecdsa"
-	"go-blockchain/domain/entity"
+
+	"go-blockchain/blockchain/domain/entity"
 	"go-blockchain/utils"
 )
 

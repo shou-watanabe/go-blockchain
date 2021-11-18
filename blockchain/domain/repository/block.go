@@ -1,6 +1,6 @@
 package repository
 
-import "go-blockchain/domain/entity"
+import "go-blockchain/blockchain/domain/entity"
 
 type BlockRepository interface {
 	PreviousHash(b *entity.Block) [32]byte

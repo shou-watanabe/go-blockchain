@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"time"
 
-	"go-blockchain/domain/entity"
-	"go-blockchain/domain/repository"
+	"go-blockchain/blockchain/domain/entity"
+	"go-blockchain/blockchain/domain/repository"
 )
 
 type blockRepository struct{}
