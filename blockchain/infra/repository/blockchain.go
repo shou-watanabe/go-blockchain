@@ -139,7 +139,7 @@ func (bcr *blockchainRepository) CreateTransaction(bc *entity.Blockchain, sender
 				senderPublicKey.Y.Bytes())
 			signatureStr := s.String()
 			bt := &request.TransactionRequest{
-				&sender, &recipient, &publicKeyStr, &value, &signatureStr}
+				SenderBlockchainAddress: &sender, RecipientBlockchainAddress: &recipient, SenderPublicKey: &publicKeyStr, Value: &value, Signature: &signatureStr}
 			m, _ := json.Marshal(bt)
 			buf := bytes.NewBuffer(m)
 			endpoint := fmt.Sprintf("http://%s/transactions", n)
@@ -196,7 +196,7 @@ func (bcr *blockchainRepository) CopyTransactionPool(bc *entity.Blockchain) []*e
 
 func (bcr *blockchainRepository) ValidProof(bc *entity.Blockchain, br repository.BlockRepository, nonce int, previousHash [32]byte, transactions []*entity.Transaction, difficulty int) bool {
 	zeros := strings.Repeat("0", difficulty)
-	guessBlock := entity.Block{0, nonce, previousHash, transactions}
+	guessBlock := entity.Block{Timestamp: 0, Nonce: nonce, PreviousHash: previousHash, Transactions: transactions}
 	guessHashStr := fmt.Sprintf("%x", br.Hash(&guessBlock))
 	return guessHashStr[:difficulty] == zeros
 }
