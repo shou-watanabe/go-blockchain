@@ -4,7 +4,8 @@ import (
 	"flag"
 	"log"
 
-	"go-blockchain/blockchain/infra/repository"
+	bir "go-blockchain/blockchain/infra/repository"
+	wir "go-blockchain/wallet/infra/repository"
 )
 
 func init() {
@@ -12,12 +13,13 @@ func init() {
 }
 
 func main() {
-	bsr := repository.NewBlockchainServerRepository()
-	bcr := repository.NewBlockchainRepository()
-	br := repository.NewBlockRepository()
+	bsr := bir.NewBlockchainServerRepository()
+	bcr := bir.NewBlockchainRepository()
+	br := bir.NewBlockRepository()
+	wr := wir.NewWalletRepository()
 
 	port := flag.Uint("port", 5000, "TCP Port Number for Blockchain Server")
 	flag.Parse()
-	bs := repository.NewBlockchainServer(uint16(*port))
-	bsr.Run(bs, bcr, br)
+	bs := bir.NewBlockchainServer(uint16(*port))
+	bsr.Run(bs, bcr, br, wr)
 }

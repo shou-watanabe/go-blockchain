@@ -16,7 +16,7 @@ func NewTransactionRepository() repository.TransactionRepository {
 }
 
 func NewTransaction(sender string, recipient string, value float32) *entity.Transaction {
-	return &entity.Transaction{sender, recipient, value}
+	return &entity.Transaction{SenderBlockchainAddress: sender, RecipientBlockchainAddress: recipient, Value: value}
 }
 
 func (tr *transactionRepository) Print(t *entity.Transaction) {
