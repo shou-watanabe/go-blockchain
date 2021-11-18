@@ -7,9 +7,10 @@ import (
 	"net/http"
 	"strconv"
 
-	"go-blockchain/blockchain/block"
 	"go-blockchain/blockchain/domain/entity"
 	"go-blockchain/blockchain/domain/repository"
+	"go-blockchain/blockchain/infra/http/request"
+	"go-blockchain/blockchain/infra/http/response"
 	"go-blockchain/utils"
 	"go-blockchain/wallet"
 )
@@ -73,7 +74,7 @@ func (bsr *blockchainServerRepository) Transactions(bs *entity.BlockchainServer,
 
 	case http.MethodPost:
 		decoder := json.NewDecoder(req.Body)
-		var t block.TransactionRequest
+		var t request.TransactionRequest
 		err := decoder.Decode(&t)
 		if err != nil {
 			log.Printf("ERROR: %v", err)
@@ -103,7 +104,7 @@ func (bsr *blockchainServerRepository) Transactions(bs *entity.BlockchainServer,
 		io.WriteString(w, string(m))
 	case http.MethodPut:
 		decoder := json.NewDecoder(req.Body)
-		var t block.TransactionRequest
+		var t request.TransactionRequest
 		err := decoder.Decode(&t)
 		if err != nil {
 			log.Printf("ERROR: %v", err)
@@ -183,7 +184,7 @@ func (bsr *blockchainServerRepository) Amount(bs *entity.BlockchainServer, bcr r
 		bc := bsr.GetBlockchain(bs, bcr, br)
 		amount := bcr.CalculateTotalAmount(bc, blockchainAddress)
 
-		ar := &block.AmountResponse{Amount: amount}
+		ar := &response.AmountResponse{Amount: amount}
 		m, _ := ar.MarshalJSON()
 
 		w.Header().Add("Content-Type", "application/json")
