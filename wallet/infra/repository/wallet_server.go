@@ -27,6 +27,10 @@ func NewWalletServerRepository() repository.WalletServerRepository {
 	return &walletServerRepository{}
 }
 
+func NewWalletServer(port uint16, gateway string) *entity.WalletServer {
+	return &entity.WalletServer{Port: port, Gateway: gateway}
+}
+
 func (wsr walletServerRepository) Port(ws *entity.WalletServer) uint16 {
 	return ws.Port
 }
