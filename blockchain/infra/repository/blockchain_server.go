@@ -12,7 +12,8 @@ import (
 	"go-blockchain/blockchain/infra/http/request"
 	"go-blockchain/blockchain/infra/http/response"
 	"go-blockchain/utils"
-	"go-blockchain/wallet"
+	wdr "go-blockchain/wallet/domain/repository"
+	wir "go-blockchain/wallet/infra/repository"
 )
 
 type blockchainServerRepository struct{}
@@ -31,24 +32,24 @@ func (bsr *blockchainServerRepository) Port(bs *entity.BlockchainServer) uint16 
 	return bs.Port
 }
 
-func (bsr *blockchainServerRepository) GetBlockchain(bs *entity.BlockchainServer, bcr repository.BlockchainRepository, br repository.BlockRepository) *entity.Blockchain {
+func (bsr *blockchainServerRepository) GetBlockchain(bs *entity.BlockchainServer, bcr repository.BlockchainRepository, br repository.BlockRepository, wr wdr.WalletRepository) *entity.Blockchain {
 	bc, ok := cache["blockchain"]
 	if !ok {
-		minersWallet := wallet.NewWallet()
-		bc = NewBlockchain(br, bcr, minersWallet.BlockchainAddress(), bsr.Port(bs))
+		minersWallet := wir.NewWallet()
+		bc = NewBlockchain(br, bcr, wr.BlockchainAddress(minersWallet), bsr.Port(bs))
 		cache["blockchain"] = bc
-		log.Printf("private_key %v", minersWallet.PrivateKeyStr())
-		log.Printf("publick_key %v", minersWallet.PublicKeyStr())
-		log.Printf("blockchain_address %v", minersWallet.BlockchainAddress())
+		log.Printf("private_key %v", wr.PrivateKeyStr(minersWallet))
+		log.Printf("publick_key %v", wr.PublicKeyStr(minersWallet))
+		log.Printf("blockchain_address %v", wr.BlockchainAddress(minersWallet))
 	}
 	return bc
 }
 
-func (bsr *blockchainServerRepository) GetChain(bs *entity.BlockchainServer, bcr repository.BlockchainRepository, br repository.BlockRepository, w http.ResponseWriter, req *http.Request) {
+func (bsr *blockchainServerRepository) GetChain(bs *entity.BlockchainServer, bcr repository.BlockchainRepository, br repository.BlockRepository, wr wdr.WalletRepository, w http.ResponseWriter, req *http.Request) {
 	switch req.Method {
 	case http.MethodGet:
 		w.Header().Add("Content-Type", "application/json")
-		bc := bsr.GetBlockchain(bs, bcr, br)
+		bc := bsr.GetBlockchain(bs, bcr, br, wr)
 		m, _ := bcr.MarshalJSON(bc)
 		io.WriteString(w, string(m[:]))
 	default:
@@ -57,11 +58,11 @@ func (bsr *blockchainServerRepository) GetChain(bs *entity.BlockchainServer, bcr
 	}
 }
 
-func (bsr *blockchainServerRepository) Transactions(bs *entity.BlockchainServer, bcr repository.BlockchainRepository, br repository.BlockRepository, w http.ResponseWriter, req *http.Request) {
+func (bsr *blockchainServerRepository) Transactions(bs *entity.BlockchainServer, bcr repository.BlockchainRepository, br repository.BlockRepository, wr wdr.WalletRepository, w http.ResponseWriter, req *http.Request) {
 	switch req.Method {
 	case http.MethodGet:
 		w.Header().Add("Content-Type", "application/json")
-		bc := bsr.GetBlockchain(bs, bcr, br)
+		bc := bsr.GetBlockchain(bs, bcr, br, wr)
 		transactions := bcr.TransactionPool(bc)
 		m, _ := json.Marshal(struct {
 			Transactions []*entity.Transaction `json:"transactions"`
@@ -88,7 +89,7 @@ func (bsr *blockchainServerRepository) Transactions(bs *entity.BlockchainServer,
 		}
 		publicKey := utils.PublicKeyFromString(*t.SenderPublicKey)
 		signature := utils.SignatureFromString(*t.Signature)
-		bc := bsr.GetBlockchain(bs, bcr, br)
+		bc := bsr.GetBlockchain(bs, bcr, br, wr)
 		isCreated := bcr.CreateTransaction(bc, *t.SenderBlockchainAddress,
 			*t.RecipientBlockchainAddress, *t.Value, publicKey, signature)
 
@@ -118,7 +119,7 @@ func (bsr *blockchainServerRepository) Transactions(bs *entity.BlockchainServer,
 		}
 		publicKey := utils.PublicKeyFromString(*t.SenderPublicKey)
 		signature := utils.SignatureFromString(*t.Signature)
-		bc := bsr.GetBlockchain(bs, bcr, br)
+		bc := bsr.GetBlockchain(bs, bcr, br, wr)
 		isUpdated := bcr.AddTransaction(bc, *t.SenderBlockchainAddress,
 			*t.RecipientBlockchainAddress, *t.Value, publicKey, signature)
 
@@ -132,7 +133,7 @@ func (bsr *blockchainServerRepository) Transactions(bs *entity.BlockchainServer,
 		}
 		io.WriteString(w, string(m))
 	case http.MethodDelete:
-		bc := bsr.GetBlockchain(bs, bcr, br)
+		bc := bsr.GetBlockchain(bs, bcr, br, wr)
 		bcr.ClearTransactionPool(bc)
 		io.WriteString(w, string(utils.JsonStatus("success")))
 	default:
@@ -141,10 +142,10 @@ func (bsr *blockchainServerRepository) Transactions(bs *entity.BlockchainServer,
 	}
 }
 
-func (bsr *blockchainServerRepository) Mine(bs *entity.BlockchainServer, bcr repository.BlockchainRepository, br repository.BlockRepository, w http.ResponseWriter, req *http.Request) {
+func (bsr *blockchainServerRepository) Mine(bs *entity.BlockchainServer, bcr repository.BlockchainRepository, br repository.BlockRepository, wr wdr.WalletRepository, w http.ResponseWriter, req *http.Request) {
 	switch req.Method {
 	case http.MethodGet:
-		bc := bsr.GetBlockchain(bs, bcr, br)
+		bc := bsr.GetBlockchain(bs, bcr, br, wr)
 		isMined := bcr.Mining(bc, br)
 
 		var m []byte
@@ -162,10 +163,10 @@ func (bsr *blockchainServerRepository) Mine(bs *entity.BlockchainServer, bcr rep
 	}
 }
 
-func (bsr *blockchainServerRepository) StartMine(bs *entity.BlockchainServer, bcr repository.BlockchainRepository, br repository.BlockRepository, w http.ResponseWriter, req *http.Request) {
+func (bsr *blockchainServerRepository) StartMine(bs *entity.BlockchainServer, bcr repository.BlockchainRepository, br repository.BlockRepository, wr wdr.WalletRepository, w http.ResponseWriter, req *http.Request) {
 	switch req.Method {
 	case http.MethodGet:
-		bc := bsr.GetBlockchain(bs, bcr, br)
+		bc := bsr.GetBlockchain(bs, bcr, br, wr)
 		bcr.StartMining(bc, br)
 
 		m := utils.JsonStatus("success")
@@ -177,11 +178,11 @@ func (bsr *blockchainServerRepository) StartMine(bs *entity.BlockchainServer, bc
 	}
 }
 
-func (bsr *blockchainServerRepository) Amount(bs *entity.BlockchainServer, bcr repository.BlockchainRepository, br repository.BlockRepository, w http.ResponseWriter, req *http.Request) {
+func (bsr *blockchainServerRepository) Amount(bs *entity.BlockchainServer, bcr repository.BlockchainRepository, br repository.BlockRepository, wr wdr.WalletRepository, w http.ResponseWriter, req *http.Request) {
 	switch req.Method {
 	case http.MethodGet:
 		blockchainAddress := req.URL.Query().Get("blockchain_address")
-		bc := bsr.GetBlockchain(bs, bcr, br)
+		bc := bsr.GetBlockchain(bs, bcr, br, wr)
 		amount := bcr.CalculateTotalAmount(bc, blockchainAddress)
 
 		ar := &response.AmountResponse{Amount: amount}
@@ -196,10 +197,10 @@ func (bsr *blockchainServerRepository) Amount(bs *entity.BlockchainServer, bcr r
 	}
 }
 
-func (bsr *blockchainServerRepository) Consensus(bs *entity.BlockchainServer, bcr repository.BlockchainRepository, br repository.BlockRepository, w http.ResponseWriter, req *http.Request) {
+func (bsr *blockchainServerRepository) Consensus(bs *entity.BlockchainServer, bcr repository.BlockchainRepository, br repository.BlockRepository, wr wdr.WalletRepository, w http.ResponseWriter, req *http.Request) {
 	switch req.Method {
 	case http.MethodPut:
-		bc := bsr.GetBlockchain(bs, bcr, br)
+		bc := bsr.GetBlockchain(bs, bcr, br, wr)
 		replaced := bcr.ResolveConflicts(bc, br)
 
 		w.Header().Add("Content-Type", "application/json")
@@ -214,27 +215,27 @@ func (bsr *blockchainServerRepository) Consensus(bs *entity.BlockchainServer, bc
 	}
 }
 
-func (bsr *blockchainServerRepository) Run(bs *entity.BlockchainServer, bcr repository.BlockchainRepository, br repository.BlockRepository) {
-	bc := bsr.GetBlockchain(bs, bcr, br)
+func (bsr *blockchainServerRepository) Run(bs *entity.BlockchainServer, bcr repository.BlockchainRepository, br repository.BlockRepository, wr wdr.WalletRepository) {
+	bc := bsr.GetBlockchain(bs, bcr, br, wr)
 	bcr.Run(bc, br)
 
 	http.HandleFunc("/", func(w http.ResponseWriter, req *http.Request) {
-		bsr.GetChain(bs, bcr, br, w, req)
+		bsr.GetChain(bs, bcr, br, wr, w, req)
 	})
 	http.HandleFunc("/transactions", func(w http.ResponseWriter, req *http.Request) {
-		bsr.Transactions(bs, bcr, br, w, req)
+		bsr.Transactions(bs, bcr, br, wr, w, req)
 	})
 	http.HandleFunc("/mine", func(w http.ResponseWriter, req *http.Request) {
-		bsr.Mine(bs, bcr, br, w, req)
+		bsr.Mine(bs, bcr, br, wr, w, req)
 	})
 	http.HandleFunc("/mine/start", func(w http.ResponseWriter, req *http.Request) {
-		bsr.StartMine(bs, bcr, br, w, req)
+		bsr.StartMine(bs, bcr, br, wr, w, req)
 	})
 	http.HandleFunc("/amount", func(w http.ResponseWriter, req *http.Request) {
-		bsr.Amount(bs, bcr, br, w, req)
+		bsr.Amount(bs, bcr, br, wr, w, req)
 	})
 	http.HandleFunc("/consensus", func(w http.ResponseWriter, req *http.Request) {
-		bsr.Consensus(bs, bcr, br, w, req)
+		bsr.Consensus(bs, bcr, br, wr, w, req)
 	})
 	log.Fatal(http.ListenAndServe("0.0.0.0:"+strconv.Itoa(int(bsr.Port(bs))), nil))
 }
