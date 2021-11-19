@@ -1,40 +1,45 @@
-package main
+package repository
 
 import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"go-blockchain/block"
-	"go-blockchain/utils"
-	"go-blockchain/wallet"
-	"html/template"
 	"io"
 	"log"
 	"net/http"
 	"path"
 	"strconv"
+	"text/template"
+
+	blockchainRequest "go-blockchain/blockchain/infra/http/request"
+	"go-blockchain/blockchain/infra/http/response"
+	"go-blockchain/utils"
+	"go-blockchain/wallet/domain/entity"
+	"go-blockchain/wallet/domain/repository"
+	walletRequest "go-blockchain/wallet/infra/http/request"
 )
 
 const tempDir = "templates"
 
-type WalletServer struct {
-	port    uint16
-	gateway string
+type walletServerRepository struct{}
+
+func NewWalletServerRepository() repository.WalletServerRepository {
+	return &walletServerRepository{}
 }
 
-func NewWalletServer(port uint16, gateway string) *WalletServer {
-	return &WalletServer{port, gateway}
+func NewWalletServer(port uint16, gateway string) *entity.WalletServer {
+	return &entity.WalletServer{Port: port, Gateway: gateway}
 }
 
-func (ws *WalletServer) Port() uint16 {
-	return ws.port
+func (wsr walletServerRepository) Port(ws *entity.WalletServer) uint16 {
+	return ws.Port
 }
 
-func (ws *WalletServer) Gateway() string {
-	return ws.gateway
+func (wsr walletServerRepository) Gateway(ws *entity.WalletServer) string {
+	return ws.Gateway
 }
 
-func (ws *WalletServer) Index(w http.ResponseWriter, req *http.Request) {
+func (wsr walletServerRepository) Index(ws *entity.WalletServer, w http.ResponseWriter, req *http.Request) {
 	switch req.Method {
 	case http.MethodGet:
 		t, _ := template.ParseFiles(path.Join(tempDir, "index.html"))
@@ -44,12 +49,12 @@ func (ws *WalletServer) Index(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-func (ws *WalletServer) Wallet(w http.ResponseWriter, req *http.Request) {
+func (wsr walletServerRepository) Wallet(wr repository.WalletRepository, w http.ResponseWriter, req *http.Request) {
 	switch req.Method {
 	case http.MethodPost:
 		w.Header().Add("Content-Type", "application/json")
-		myWallet := wallet.NewWallet()
-		m, _ := myWallet.MarshalJSON()
+		myWallet := NewWallet()
+		m, _ := wr.MarshalJSON(myWallet)
 		io.WriteString(w, string(m[:]))
 	default:
 		w.WriteHeader(http.StatusBadRequest)
@@ -57,11 +62,11 @@ func (ws *WalletServer) Wallet(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-func (ws *WalletServer) CreateTransaction(w http.ResponseWriter, req *http.Request) {
+func (wsr walletServerRepository) CreateTransaction(ws *entity.WalletServer, tr repository.TransactionRepository, w http.ResponseWriter, req *http.Request) {
 	switch req.Method {
 	case http.MethodPost:
 		decoder := json.NewDecoder(req.Body)
-		var t wallet.TransactionRequest
+		var t walletRequest.TransactionRequest
 		err := decoder.Decode(&t)
 		if err != nil {
 			log.Printf("ERROR: %v", err)
@@ -86,21 +91,21 @@ func (ws *WalletServer) CreateTransaction(w http.ResponseWriter, req *http.Reque
 
 		w.Header().Add("Content-Type", "application/json")
 
-		transaction := wallet.NewTransaction(privateKey, publicKey,
+		transaction := NewTransaction(privateKey, publicKey,
 			*t.SenderBlockchainAddress, *t.RecipientBlockchainAddress, value32)
-		signature := transaction.GenerateSignature()
+		signature := tr.GenerateSignature(transaction)
 		signatureStr := signature.String()
 
-		bt := &block.TransactionRequest{
-			t.SenderBlockchainAddress,
-			t.RecipientBlockchainAddress,
-			t.SenderPublicKey,
-			&value32, &signatureStr,
+		bt := &blockchainRequest.TransactionRequest{
+			SenderBlockchainAddress:    t.SenderBlockchainAddress,
+			RecipientBlockchainAddress: t.RecipientBlockchainAddress,
+			SenderPublicKey:            t.SenderPublicKey,
+			Value:                      &value32, Signature: &signatureStr,
 		}
 		m, _ := json.Marshal(bt)
 		buf := bytes.NewBuffer(m)
 
-		resp, _ := http.Post(ws.Gateway()+"/transactions", "application/json", buf)
+		resp, _ := http.Post(wsr.Gateway(ws)+"/transactions", "application/json", buf)
 		if resp.StatusCode == 201 {
 			io.WriteString(w, string(utils.JsonStatus("success")))
 			return
@@ -112,11 +117,11 @@ func (ws *WalletServer) CreateTransaction(w http.ResponseWriter, req *http.Reque
 	}
 }
 
-func (ws *WalletServer) WalletAmount(w http.ResponseWriter, req *http.Request) {
+func (wsr walletServerRepository) WalletAmount(ws *entity.WalletServer, w http.ResponseWriter, req *http.Request) {
 	switch req.Method {
 	case http.MethodGet:
 		blockchainAddress := req.URL.Query().Get("blockchain_address")
-		endpoint := fmt.Sprintf("%s/amount", ws.Gateway())
+		endpoint := fmt.Sprintf("%s/amount", wsr.Gateway(ws))
 
 		client := &http.Client{}
 		bcsReq, _ := http.NewRequest("GET", endpoint, nil)
@@ -134,7 +139,7 @@ func (ws *WalletServer) WalletAmount(w http.ResponseWriter, req *http.Request) {
 		w.Header().Add("Content-Type", "application/json")
 		if bcsResp.StatusCode == 200 {
 			decoder := json.NewDecoder(bcsResp.Body)
-			var bar block.AmountResponse
+			var bar response.AmountResponse
 			err := decoder.Decode(&bar)
 			if err != nil {
 				log.Printf("ERROR: %v", err)
@@ -159,10 +164,18 @@ func (ws *WalletServer) WalletAmount(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-func (ws *WalletServer) Run() {
-	http.HandleFunc("/", ws.Index)
-	http.HandleFunc("/wallet", ws.Wallet)
-	http.HandleFunc("/wallet/amount", ws.WalletAmount)
-	http.HandleFunc("/transaction", ws.CreateTransaction)
-	log.Fatal(http.ListenAndServe("0.0.0.0:"+strconv.Itoa(int(ws.Port())), nil))
+func (wsr walletServerRepository) Run(ws *entity.WalletServer, wr repository.WalletRepository, tr repository.TransactionRepository) {
+	http.HandleFunc("/", func(w http.ResponseWriter, req *http.Request) {
+		wsr.Index(ws, w, req)
+	})
+	http.HandleFunc("/wallet", func(w http.ResponseWriter, req *http.Request) {
+		wsr.Wallet(wr, w, req)
+	})
+	http.HandleFunc("/wallet/amount", func(w http.ResponseWriter, req *http.Request) {
+		wsr.WalletAmount(ws, w, req)
+	})
+	http.HandleFunc("/transaction", func(w http.ResponseWriter, req *http.Request) {
+		wsr.CreateTransaction(ws, tr, w, req)
+	})
+	log.Fatal(http.ListenAndServe("0.0.0.0:"+strconv.Itoa(int(wsr.Port(ws))), nil))
 }
